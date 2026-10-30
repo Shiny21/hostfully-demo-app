@@ -43,9 +43,24 @@ Requests with missing or malformed fields, or `start_date >= end_date`, return `
 
 ## Vercel deployment
 
-The Vercel entrypoint is [`api/index.py`](api/index.py), with routing in [`vercel.json`](vercel.json). Connect this repository to a Vercel project and set **`DATABASE_URL` or `POSTGRES_URL`** to a persistent PostgreSQL database in the Vercel project settings before deployment. `postgres://`, `postgresql://`, and `postgresql+psycopg2://` URLs are accepted. Include the provider's required SSL parameters in the URL. The app creates its tables on startup.
+The Vercel entrypoint is [`api/index.py`](api/index.py), with routing in [`vercel.json`](vercel.json). Connect the Vercel project to this GitHub repository (`Shiny21/hostfully-demo-app`), with root directory `./`. Vercel installs Python packages from `pyproject.toml`; keep its runtime dependencies aligned with `requirements.txt`. Set **`DATABASE_URL` or `POSTGRES_URL`** to a persistent PostgreSQL database in the Vercel project settings before deployment. The connected Neon integration normally supplies `DATABASE_URL` automatically. `postgres://`, `postgresql://`, and `postgresql+psycopg2://` URLs are accepted. Keep the SSL parameters from Neon's connection string. The app creates its tables on startup; do not run the Next.js `comments` table SQL from Neon's generic guide.
 
-Vercel runs short-lived functions and cannot host the PostgreSQL Docker container from `docker-compose.yml`. A local Docker database is also not reachable from a public deployment. The simplest setup with this code is a hosted PostgreSQL database, such as Neon: create a database there, copy its PostgreSQL connection string, and add it as `DATABASE_URL` in Vercel's project environment variables. Keep that string out of GitHub. You may set `AUTO_SEED_DEMO=true` for one example property, booking, and block. Import the GitHub repository into Vercel as a Python project, deploy, then check `/health`, `/admin`, and `/docs`.
+Vercel runs short-lived functions and cannot host the PostgreSQL Docker container from `docker-compose.yml`. A local Docker database is also not reachable from a public deployment. Use the Neon integration's **pooled** `DATABASE_URL`, and keep it out of GitHub. The Python app already uses SQLAlchemy and psycopg2; the JavaScript `postgres` and `@neondatabase/serverless` snippets are for Node applications and are not needed here. You may set `AUTO_SEED_DEMO=true` for one example property, booking, and block. Redeploy after connecting Neon or changing environment variables, then check `/health`, `/admin`, and `/docs`. `/health` checks the database connection.
+
+For the Vercel Git integration used by this project, **no GitHub Actions secrets are required**. The existing GitHub workflow only runs lint and SQLite tests. Keep `DATABASE_URL` in **Vercel Project → Environment Variables** (the Neon integration should add it). For the public interactive demo, leave `API_KEY_REQUIRED` unset or set it to `false`; no `API_SECRET_KEY` is needed. If you enable enforced API keys, set `API_KEY_REQUIRED=true` and a long random `API_SECRET_KEY` as a second **Vercel** environment variable, then redeploy. `AUTO_SEED_DEMO=true` is optional and is not a secret. Never place database URLs or API keys in GitHub Actions secrets unless a future workflow actually needs them.
+
+### Run locally against the connected Neon database
+
+These PowerShell commands use the **same database** as Vercel, so local writes will appear in the deployed demo. The Vercel CLI may ask you to sign in and select the `hostfully-demo-app` project. Pull the production variables because that is where the connected Neon database is used:
+
+```powershell
+npx vercel login
+npx vercel link --project hostfully-demo-app
+npx vercel env pull .env.development.local --environment=production
+docker compose --env-file .env.development.local -f docker-compose.neon.yml -p hostfully-neon up --build
+```
+
+In a second PowerShell window, run `Invoke-RestMethod http://localhost:5001/health` and open `http://localhost:5001/admin`. Port 5001 keeps the Neon-backed app separate from the local PostgreSQL stack on port 5000. Stop the stack with Ctrl+C. The downloaded `.env.development.local` and `.vercel/` project link are ignored by Git, and all `.env.*` files are excluded from the Docker build context. If Vercel CLI is unavailable, create `.env.development.local` yourself with `DATABASE_URL=<Neon pooled URL>` copied from the Neon dashboard; keep the real value private. Docker Desktop must be running for the Docker commands.
 
 The default SQLite in-memory database is intended for local tests. On Vercel, startup fails clearly if no PostgreSQL URL is configured, because separate function instances would otherwise lose or disagree on bookings. In the default open demo mode, anyone with the public URL can change demo data; use only disposable sample records. For enforced roles, set `API_KEY_REQUIRED=true` and a private `API_SECRET_KEY`. `/docs` loads Swagger UI assets from a public CDN.
 

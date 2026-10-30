@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    ports:
+      - "5001:5000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Pull the Vercel environment into .env.development.local first}
+      API_KEY_REQUIRED: ${API_KEY_REQUIRED:-false}
+      API_SECRET_KEY: ${API_SECRET_KEY:-}
+      AUTO_SEED_DEMO: ${AUTO_SEED_DEMO:-false}

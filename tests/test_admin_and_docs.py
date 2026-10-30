@@ -5,6 +5,7 @@ from app.extensions import db
 
 
 def test_admin_screen_and_openapi_document(client):
+    assert client.get("/health").get_json()["status"] == "healthy"
     root = client.get("/")
     assert root.status_code == 302
     assert root.headers["Location"].endswith("/admin")

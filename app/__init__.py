@@ -3,7 +3,7 @@ from datetime import date
 
 from flask import Flask, g, jsonify, request
 from sqlalchemy import text
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool, StaticPool
 
 from app.errors import register_error_handlers
 from app.extensions import db
@@ -49,6 +49,15 @@ def create_app(test_config: dict | None = None) -> Flask:
             "connect_args": {"check_same_thread": False},
             "poolclass": StaticPool,
         }
+    elif os.getenv("VERCEL") and app.config["SQLALCHEMY_DATABASE_URI"].startswith(
+        "postgresql+psycopg2://"
+    ):
+        # Neon supplies a pooled endpoint; avoid retaining connections across
+        # short-lived serverless instances.
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "connect_args": {"connect_timeout": 10},
+            "poolclass": NullPool,
+        }
 
     db.init_app(app)
     register_error_handlers(app)
@@ -84,6 +93,7 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     @app.get("/health")
     def health_check():
+        db.session.execute(text("SELECT 1"))
         return jsonify({"status": "healthy", "service": "hostfully-booking-api"}), 200
 
     with app.app_context():

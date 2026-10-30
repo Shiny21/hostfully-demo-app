@@ -1,5 +1,6 @@
 .git
 .env
+.env.*
 .vercel
 .venv
 venv
