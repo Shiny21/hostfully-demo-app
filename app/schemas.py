@@ -43,6 +43,13 @@ class BookingUpdateSchema(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
 
+    @field_validator("guest_name", "start_date", "end_date", mode="before")
+    @classmethod
+    def reject_null_updates(cls, value):
+        if value is None:
+            raise ValueError("Field cannot be null; omit it to leave it unchanged")
+        return value
+
 
 class BlockCreateSchema(DateRangeMixin):
     model_config = ConfigDict(extra="forbid")
@@ -55,6 +62,13 @@ class BlockUpdateSchema(BaseModel):
 
     start_date: date | None = None
     end_date: date | None = None
+
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def reject_null_updates(cls, value):
+        if value is None:
+            raise ValueError("Field cannot be null; omit it to leave it unchanged")
+        return value
 
 
 class UserCreateSchema(BaseModel):

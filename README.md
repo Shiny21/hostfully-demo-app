@@ -2,6 +2,8 @@
 
 A Flask REST API for properties, guest bookings, and owner blocks. Dates are inclusive: a booking that shares its start or end day with a confirmed booking or block on the same property is rejected.
 
+Live demo: [Admin playground](https://hostfully-demo-app.vercel.app/admin) · [API documentation](https://hostfully-demo-app.vercel.app/docs).
+
 Open [the admin playground](http://localhost:5000/admin) to manage sample records and see API responses. [Swagger UI](http://localhost:5000/docs) documents the endpoints, and [OpenAPI JSON](http://localhost:5000/openapi.json) is available for tools.
 
 ## Run on Windows with Docker
@@ -14,9 +16,9 @@ docker compose run --rm api ruff check app tests
 docker compose down
 ```
 
-The API listens on `http://localhost:5000`. PostgreSQL runs in the Compose stack. `docker compose down` removes its container and data; this setup is for local development and review.
+The API listens on `http://localhost:5000`. PostgreSQL runs in the Compose stack. `docker compose down` removes the containers; this setup is for local development and review.
 
-The test suite uses SQLite in memory, so it does not need the PostgreSQL container. After building the image, `docker run --rm -v "${PWD}:/srv/app" -w /srv/app hostfully-booking-api-api pytest` runs it without Compose.
+The test suite uses SQLite in memory, so it does not need the PostgreSQL container. After building the image, `docker run --rm -v "${PWD}:/srv/app" -w /srv/app hostfully-demo-app-api pytest` runs it without Compose.
 
 ## API
 

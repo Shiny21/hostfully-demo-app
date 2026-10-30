@@ -1,5 +1,7 @@
 import pytest
 
+from app.services.booking_service import BookingService
+
 
 def booking_payload(property_id, start="2026-12-10", end="2026-12-15"):
     return {
@@ -135,6 +137,9 @@ def test_missing_references_and_invalid_updates(client, sample_property):
     block = client.post("/api/v1/blocks", json=block_payload(prop_id)).get_json()
     assert_error(client.patch(f"/api/v1/bookings/{booking['id']}", json={}), 400)
     assert_error(client.patch(f"/api/v1/blocks/{block['id']}", json={}), 400)
+    assert_error(client.patch(f"/api/v1/bookings/{booking['id']}", json={"guest_name": None}), 400)
+    assert_error(client.patch(f"/api/v1/bookings/{booking['id']}", json={"start_date": None}), 400)
+    assert_error(client.patch(f"/api/v1/blocks/{block['id']}", json={"end_date": None}), 400)
     assert_error(
         client.patch(f"/api/v1/bookings/{booking['id']}", json={"end_date": "2026-12-10"}),
         400,
@@ -151,3 +156,35 @@ def test_canceled_booking_does_not_prevent_block(client, sample_property):
     )
     assert block.status_code == 201
     assert_error(client.post(f"/api/v1/bookings/{booking['id']}/rebook"), 409)
+
+
+def test_overlap_is_scoped_to_property(client, sample_property):
+    other_property = client.post(
+        "/api/v1/properties", json={"name": "Other Villa", "country_code": "GB"}
+    ).get_json()
+    first_property_id = sample_property["id"]
+    second_property_id = other_property["id"]
+
+    assert client.post(
+        "/api/v1/bookings", json=booking_payload(first_property_id)
+    ).status_code == 201
+    assert client.post(
+        "/api/v1/bookings", json=booking_payload(second_property_id)
+    ).status_code == 201
+    assert client.post(
+        "/api/v1/blocks", json=block_payload(first_property_id)
+    ).status_code == 201
+    assert client.post(
+        "/api/v1/bookings",
+        json=booking_payload(second_property_id, "2026-12-20", "2026-12-25"),
+    ).status_code == 201
+
+
+def test_unexpected_error_does_not_leak_exception_to_client(client, monkeypatch):
+    def fail(*args, **kwargs):
+        raise RuntimeError("private traceback marker")
+
+    monkeypatch.setattr(BookingService, "list_bookings", staticmethod(fail))
+    response = client.get("/api/v1/bookings")
+    assert_error(response, 500)
+    assert "private traceback marker" not in response.get_data(as_text=True)
