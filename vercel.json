@@ -2,8 +2,12 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/api/index"
+      "source": "/",
+      "destination": "/api/index?__vercel_path="
+    },
+    {
+      "source": "/:path*",
+      "destination": "/api/index?__vercel_path=:path*"
     }
   ]
 }
