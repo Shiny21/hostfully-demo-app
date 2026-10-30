@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hostfully Booking Playground</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, system-ui, sans-serif; background: #f5f7f8; color: #152426; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    .shell { max-width: 1250px; margin: 0 auto; padding: 28px 22px 60px; }
+    header, .toolbar, .section-head, .actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    header { margin-bottom: 22px; }
+    h1 { margin: 0; font-size: clamp(1.7rem, 3vw, 2.4rem); letter-spacing: -.04em; }
+    h2 { margin: 0 0 14px; font-size: 1.15rem; }
+    p { margin: 6px 0 0; line-height: 1.5; color: #526365; }
+    a { color: #087466; text-decoration: none; font-weight: 650; }
+    a:hover { text-decoration: underline; }
+    .eyebrow { color: #087466; font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .toolbar, .card, .notice { background: white; border: 1px solid #dbe4e3; border-radius: 16px; box-shadow: 0 5px 20px #123b3210; }
+    .toolbar { padding: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+    .toolbar .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+    .notice { padding: 14px 18px; margin-bottom: 18px; font-size: .9rem; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .card { padding: 20px; min-width: 0; }
+    .wide { grid-column: 1 / -1; }
+    form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-bottom: 16px; }
+    label { display: grid; gap: 5px; color: #526365; font-size: .78rem; font-weight: 700; }
+    input, select { width: 100%; min-width: 112px; padding: 9px 10px; border: 1px solid #bdccca; border-radius: 8px; background: white; color: #152426; font: inherit; }
+    input[type="date"] { min-width: 142px; }
+    input:focus, select:focus { outline: 2px solid #62bca9; outline-offset: 1px; }
+    button { border: 0; border-radius: 8px; padding: 10px 13px; font: inherit; font-weight: 700; background: #0b7264; color: white; cursor: pointer; }
+    button:hover { background: #095c51; }
+    button.secondary { background: #edf4f2; color: #0b6358; }
+    button.secondary:hover { background: #dcebe7; }
+    button.danger { background: #fff0ee; color: #a53b2e; }
+    button.danger:hover { background: #fbded9; }
+    button.small { padding: 6px 8px; font-size: .74rem; margin: 2px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+    th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid #e7edec; vertical-align: middle; }
+    th { color: #526365; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
+    .muted { color: #718180; }
+    .pill { display: inline-block; border-radius: 99px; padding: 3px 7px; background: #e7f6ee; color: #116d4e; font-size: .73rem; font-weight: 800; }
+    .pill.canceled { background: #f2f2f2; color: #66706d; }
+    pre { margin: 0; padding: 15px; overflow: auto; max-height: 250px; border-radius: 10px; background: #142a2a; color: #d9f3e9; font-size: .8rem; line-height: 1.5; }
+    .hint { font-size: .8rem; margin-bottom: 14px; }
+    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } header { align-items: start; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <div class="eyebrow">Hostfully technical test</div>
+        <h1>Booking & availability playground</h1>
+        <p>Create properties, reserve dates, block dates, and see overlap responses.</p>
+      </div>
+      <a href="/docs">API docs ↗</a>
+    </header>
+
+    <div class="toolbar">
+      <div class="controls">
+        <label>Act as
+          <select id="role"><option>ADMIN</option><option>MANAGER</option><option>GUEST</option></select>
+        </label>
+        <label>API key (when strict auth is enabled)
+          <input id="api-key" type="password" autocomplete="off" placeholder="Optional in demo mode">
+        </label>
+        <button id="refresh" type="button" class="secondary">Refresh data</button>
+      </div>
+      <span class="muted">Selected role is sent with each API request.</span>
+    </div>
+    <div class="notice">In open demo mode the role selector uses <code>X-Role</code> to show permissions. In strict mode the API key determines the role and the selector cannot override it. New user keys are shown only once when created.</div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Properties</h2>
+        <form id="property-form">
+          <label>Name <input name="name" required maxlength="120" placeholder="Ocean View Villa"></label>
+          <label>Country <input name="country_code" required maxlength="2" minlength="2" placeholder="PT"></label>
+          <button>Create property</button>
+        </form>
+        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Country</th></tr></thead><tbody id="properties"></tbody></table></div>
+      </section>
+
+      <section class="card">
+        <h2>Bookings</h2>
+        <form id="booking-form">
+          <input type="hidden" name="id">
+          <label>Property <select name="property_id" required></select></label>
+          <label>Guest <input name="guest_name" required maxlength="120"></label>
+          <label>Start <input name="start_date" type="date" required></label>
+          <label>End <input name="end_date" type="date" required></label>
+          <button id="booking-save">Create booking</button>
+          <button type="reset" class="secondary">Clear</button>
+        </form>
+        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Property</th><th>Guest</th><th>Dates</th><th>Status</th><th>Actions</th></tr></thead><tbody id="bookings"></tbody></table></div>
+      </section>
+
+      <section class="card">
+        <h2>Blocks</h2>
+        <form id="block-form">
+          <input type="hidden" name="id">
+          <label>Property <select name="property_id" required></select></label>
+          <label>Start <input name="start_date" type="date" required></label>
+          <label>End <input name="end_date" type="date" required></label>
+          <button id="block-save">Create block</button>
+          <button type="reset" class="secondary">Clear</button>
+        </form>
+        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Property</th><th>Dates</th><th>Actions</th></tr></thead><tbody id="blocks"></tbody></table></div>
+      </section>
+
+      <section class="card">
+        <h2>Users & roles <span class="muted">(ADMIN only)</span></h2>
+        <p class="hint">Create a named API key, change its role, or revoke it. Keys are shown in the response panel only when created.</p>
+        <form id="user-form">
+          <input type="hidden" name="id">
+          <label>Name <input name="name" required maxlength="120"></label>
+          <label>Role <select name="role"><option>GUEST</option><option>MANAGER</option><option>ADMIN</option></select></label>
+          <button id="user-save">Create user</button>
+          <button type="reset" class="secondary">Clear</button>
+        </form>
+        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Actions</th></tr></thead><tbody id="users"></tbody></table></div>
+      </section>
+
+      <section class="card">
+        <h2>Recent audit events <span class="muted">(ADMIN only)</span></h2>
+        <p class="hint">Successful write requests are recorded without request bodies or API keys.</p>
+        <div class="table-wrap"><table><thead><tr><th>Time</th><th>Role</th><th>Request</th><th>Status</th></tr></thead><tbody id="audit"></tbody></table></div>
+      </section>
+
+      <section class="card">
+        <h2>API response</h2>
+        <p class="hint">A 409 response demonstrates inclusive overlap protection. Try a booking that touches an existing end date.</p>
+        <pre id="response" aria-live="polite">Choose an action to see its API response.</pre>
+      </section>
+    </div>
+  </main>
+  <script>
+    const el = (id) => document.getElementById(id);
+    const state = {properties: [], bookings: [], blocks: [], users: []};
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[c]);
+    const message = (label, status, body) => {
+      el("response").textContent = label + " — HTTP " + status + "\n" + JSON.stringify(body, null, 2);
+    };
+    async function api(method, path, payload) {
+      const headers = {"X-Role": el("role").value};
+      const key = el("api-key").value.trim();
+      if (key) headers["X-API-Key"] = key;
+      if (payload !== undefined) headers["Content-Type"] = "application/json";
+      const response = await fetch(path, {
+        method, headers, body: payload === undefined ? undefined : JSON.stringify(payload)
+      });
+      const content = await response.text();
+      let body = null;
+      if (content) {
+        try { body = JSON.parse(content); } catch { body = content; }
+      }
+      if (!response.ok) throw {status: response.status, body};
+      return {status: response.status, body};
+    }
+    async function run(label, method, path, payload) {
+      try {
+        const result = await api(method, path, payload);
+        message(label, result.status, result.body);
+        await refresh();
+        return result.body;
+      } catch (error) {
+        message(label, error.status || "network error", error.body || String(error));
+        return null;
+      }
+    }
+    function renderProperties(items) {
+      state.properties = items;
+      el("properties").innerHTML = items.map((p) =>
+        "<tr><td>" + p.id + "</td><td>" + escapeHtml(p.name) + "</td><td>" +
+        escapeHtml(p.country_code) + "</td></tr>").join("") ||
+        '<tr><td colspan="3" class="muted">No properties yet.</td></tr>';
+      for (const formId of ["booking-form", "block-form"]) {
+        const select = el(formId).elements.property_id;
+        const current = select.value;
+        select.innerHTML = items.map((p) => '<option value="' + p.id + '">' +
+          escapeHtml(p.id + " — " + p.name) + "</option>").join("");
+        if (items.some((p) => String(p.id) === current)) select.value = current;
+      }
+    }
+    function renderBookings(items) {
+      state.bookings = items;
+      el("bookings").innerHTML = items.map((b) =>
+        "<tr><td>" + b.id + "</td><td>" + b.property_id + "</td><td>" +
+        escapeHtml(b.guest_name) + "</td><td>" + escapeHtml(b.start_date) + " → " +
+        escapeHtml(b.end_date) + '</td><td><span class="pill ' +
+        (b.status === "CANCELED" ? "canceled" : "") + '">' + escapeHtml(b.status) +
+        '</span></td><td><button class="small secondary" data-kind="booking" data-action="edit" data-id="' +
+        b.id + '">Edit</button><button class="small secondary" data-kind="booking" data-action="' +
+        (b.status === "CANCELED" ? "rebook" : "cancel") + '" data-id="' + b.id + '">' +
+        (b.status === "CANCELED" ? "Rebook" : "Cancel") +
+        '</button><button class="small danger" data-kind="booking" data-action="delete" data-id="' +
+        b.id + '">Delete</button></td></tr>').join("") ||
+        '<tr><td colspan="6" class="muted">No bookings yet.</td></tr>';
+    }
+    function renderBlocks(items) {
+      state.blocks = items;
+      el("blocks").innerHTML = items.map((b) =>
+        "<tr><td>" + b.id + "</td><td>" + b.property_id + "</td><td>" +
+        escapeHtml(b.start_date) + " → " + escapeHtml(b.end_date) +
+        '</td><td><button class="small secondary" data-kind="block" data-action="edit" data-id="' +
+        b.id + '">Edit</button><button class="small danger" data-kind="block" data-action="delete" data-id="' +
+        b.id + '">Delete</button></td></tr>').join("") ||
+        '<tr><td colspan="4" class="muted">No blocks yet.</td></tr>';
+    }
+    function renderUsers(items) {
+      state.users = items;
+      el("users").innerHTML = items.map((u) =>
+        "<tr><td>" + u.id + "</td><td>" + escapeHtml(u.name) + "</td><td>" +
+        escapeHtml(u.role) + '</td><td><button class="small secondary" data-kind="user" data-action="edit" data-id="' +
+        u.id + '">Edit</button><button class="small danger" data-kind="user" data-action="delete" data-id="' +
+        u.id + '">Revoke</button></td></tr>').join("") ||
+        '<tr><td colspan="4" class="muted">No users yet.</td></tr>';
+    }
+    function renderAudit(items) {
+      el("audit").innerHTML = items.map((a) =>
+        "<tr><td>" + escapeHtml(a.created_at) + "</td><td>" + escapeHtml(a.role) +
+        "</td><td>" + escapeHtml(a.method + " " + a.path) + "</td><td>" +
+        a.status_code + "</td></tr>").join("") ||
+        '<tr><td colspan="4" class="muted">No audit events yet.</td></tr>';
+    }
+    async function read(path, render, target, colspan) {
+      try { render((await api("GET", path)).body); }
+      catch (error) {
+        el(target).innerHTML = '<tr><td colspan="' + colspan + '" class="muted">' +
+          escapeHtml(error.body?.details || "Could not load data.") + "</td></tr>";
+      }
+    }
+    async function refresh() {
+      await Promise.all([
+        read("/api/v1/properties", renderProperties, "properties", 3),
+        read("/api/v1/bookings", renderBookings, "bookings", 6),
+        read("/api/v1/blocks", renderBlocks, "blocks", 4),
+        read("/api/v1/admin/users", renderUsers, "users", 4),
+        read("/api/v1/admin/audit", renderAudit, "audit", 4)
+      ]);
+    }
+    el("property-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const f = event.currentTarget;
+      if (await run("Create property", "POST", "/api/v1/properties",
+          {name: f.elements.name.value, country_code: f.elements.country_code.value})) f.reset();
+    });
+    el("booking-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const f = event.currentTarget;
+      const id = f.elements.id.value;
+      const data = {guest_name: f.elements.guest_name.value,
+        start_date: f.elements.start_date.value, end_date: f.elements.end_date.value};
+      if (!id) data.property_id = Number(f.elements.property_id.value);
+      if (await run(id ? "Update booking" : "Create booking", id ? "PATCH" : "POST",
+          "/api/v1/bookings" + (id ? "/" + id : ""), data)) {
+        f.reset(); f.elements.id.value = ""; el("booking-save").textContent = "Create booking";
+      }
+    });
+    el("block-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const f = event.currentTarget;
+      const id = f.elements.id.value;
+      const data = {start_date: f.elements.start_date.value, end_date: f.elements.end_date.value};
+      if (!id) data.property_id = Number(f.elements.property_id.value);
+      if (await run(id ? "Update block" : "Create block", id ? "PATCH" : "POST",
+          "/api/v1/blocks" + (id ? "/" + id : ""), data)) {
+        f.reset(); f.elements.id.value = ""; el("block-save").textContent = "Create block";
+      }
+    });
+    el("user-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const f = event.currentTarget;
+      const id = f.elements.id.value;
+      if (await run(id ? "Update user" : "Create user", id ? "PATCH" : "POST",
+          "/api/v1/admin/users" + (id ? "/" + id : ""),
+          {name: f.elements.name.value, role: f.elements.role.value})) {
+        f.reset(); f.elements.id.value = ""; el("user-save").textContent = "Create user";
+      }
+    });
+    document.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-kind][data-action]");
+      if (!button) return;
+      const kind = button.dataset.kind, action = button.dataset.action, id = Number(button.dataset.id);
+      const item = state[kind + "s"].find((value) => value.id === id);
+      if (!item) return;
+      if (action === "edit") {
+        const form = el(kind + "-form");
+        form.elements.id.value = id;
+        if (kind !== "user") form.elements.property_id.value = item.property_id;
+        if (kind === "booking") form.elements.guest_name.value = item.guest_name;
+        if (kind === "user") { form.elements.name.value = item.name; form.elements.role.value = item.role; }
+        if (kind !== "user") {
+          form.elements.start_date.value = item.start_date; form.elements.end_date.value = item.end_date;
+        }
+        el(kind + "-save").textContent = "Update " + kind;
+        form.scrollIntoView({behavior: "smooth", block: "center"});
+        return;
+      }
+      if (action === "delete" && !confirm("Delete " + kind + " #" + id + "?")) return;
+      const base = kind === "user" ? "/api/v1/admin/users/" : "/api/v1/" + kind + "s/";
+      await run(action + " " + kind, action === "delete" ? "DELETE" : "POST",
+        base + id + (action === "cancel" || action === "rebook" ? "/" + action : ""));
+    });
+    el("booking-form").addEventListener("reset", () => { el("booking-save").textContent = "Create booking"; });
+    el("block-form").addEventListener("reset", () => { el("block-save").textContent = "Create block"; });
+    el("user-form").addEventListener("reset", () => { el("user-save").textContent = "Create user"; });
+    el("refresh").addEventListener("click", refresh);
+    el("role").addEventListener("change", refresh);
+    el("api-key").addEventListener("change", refresh);
+    refresh();
+  </script>
+</body>
+</html>
